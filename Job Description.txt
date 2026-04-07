@@ -1,0 +1,34 @@
+Role: AI/ML Engineer - Talent Intelligence & Automation
+
+We are looking for an AI/ML Engineer to build a Talent Rediscovery + Re-Engagement prototype for recruiters.
+
+What you will build:
+- Candidate matching and ranking from old ATS/CSV data
+- Explanation of why each candidate fits a new role
+- Personalized outreach messages for WhatsApp and email
+- Shortlist export for recruiters
+
+Must have:
+- Python
+- Machine Learning
+- NLP or LLM applications
+- RAG or search/retrieval experience
+- FastAPI or backend API experience
+- Streamlit or similar UI experience
+
+Good to have:
+- LangChain or LangGraph
+- Vector databases
+- Prompt engineering
+- Evaluation pipelines
+- Docker
+- SQL
+- AWS
+
+Preferred profile:
+- 3 to 7 years of experience
+- Bengaluru-based or open to remote-friendly India
+- Notice period up to 60 days
+- Comfortable working on production-ready prototypes
+
+This role is ideal for someone who can think like a product builder and ship useful AI features quickly.

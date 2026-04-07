@@ -162,6 +162,10 @@ def main():
 
         df = df[df.apply(lambda x: passes_filter(x, jd_struct), axis=1)]
 
+        if df.empty:
+            st.warning("No candidates passed the hard filter. Try relaxing the job description or check your CSV columns.")
+            st.stop()
+
         df = compute_scores(df, jd_struct)
 
         df["priority"] = df.apply(lambda x: assign_priority(x["score"], x["skill"]), axis=1)
