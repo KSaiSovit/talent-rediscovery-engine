@@ -12,7 +12,7 @@ Must have:
 - Python
 - Machine Learning
 - NLP or LLM applications
-- RAG or search/retrieval experience
+- RAG
 
 Good to have:
 - LangChain or LangGraph
