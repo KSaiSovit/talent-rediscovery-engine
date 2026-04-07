@@ -1,5 +1,5 @@
 # =============================
-# TALENT REDISCOVERY ENGINE
+# TALENT REDISCOVERY ENGINE - FINAL FIX
 # =============================
 
 import streamlit as st
@@ -18,8 +18,9 @@ def clean_text(x):
     return "" if pd.isna(x) else str(x).lower().strip()
 
 def tokenize_candidate_skills(text):
-    """Keep multi‑word phrases (split only by commas, slashes, newlines, pipes)."""
+    """Split by commas, slashes, newlines, pipes. Keep multi-word phrases."""
     text = clean_text(text)
+    # Split only on delimiters, not on spaces
     tokens = re.split(r"[,/;\n|\|]+", text)
     return [t.strip() for t in tokens if t.strip()]
 
@@ -28,7 +29,7 @@ def extract_years(text):
     return float(m.group(1)) if m else None
 
 # ------------------------------
-# JD PARSING (PRESERVES SLASHES & MULTI‑WORD PHRASES)
+# JD PARSING - PRESERVES PHRASES, HANDLES "or"
 # ------------------------------
 def parse_jd(jd_text):
     must_have = []
@@ -38,33 +39,37 @@ def parse_jd(jd_text):
         line_lower = line.lower()
         if "must have" in line_lower:
             capture = True
+            # Also extract from the same line after colon
             if ":" in line:
-                after_colon = line.split(":", 1)[1]
-                must_have.extend(_extract_skill_phrases(after_colon))
+                after = line.split(":", 1)[1]
+                must_have.extend(_extract_skill_phrases(after))
             continue
 
         if capture:
             stripped = line.strip()
+            # Stop at blank line or next section
             if not stripped or any(h in line_lower for h in ["good to have", "preferred", "nice to have"]):
                 capture = False
                 continue
+            # Capture bullet points or numbered items
             if stripped.startswith(("-", "*", "•")) or re.match(r"^\d+\.", stripped):
                 content = re.sub(r"^[\-\*\•\d\.]+\s*", "", stripped)
                 must_have.extend(_extract_skill_phrases(content))
 
-    # Remove duplicates while preserving order
+    # Remove duplicates, keep order, filter out very short / stop words
+    stopwords = {"a", "an", "and", "of", "for", "with", "the", "to", "in", "on", "at", "by"}
     seen = set()
     unique = []
     for s in must_have:
-        if s not in seen:
+        if s not in seen and len(s) > 1 and s not in stopwords:
             seen.add(s)
             unique.append(s)
     return {"must_have": unique, "text": clean_text(jd_text)}
 
 def _extract_skill_phrases(text):
     """
-    Split by commas or "or", but keep slashes and spaces inside a phrase.
-    Example: "RAG or search/retrieval experience" -> ["rag", "search/retrieval experience"]
+    Split by commas or "or", keep slashes and spaces inside a phrase.
+    Example: "NLP or LLM applications" -> ["nlp", "llm applications"]
     """
     # Replace " or " with a comma
     text = re.sub(r"\s+or\s+", ",", text)
@@ -72,13 +77,13 @@ def _extract_skill_phrases(text):
     skills = []
     for p in parts:
         # Remove only leading/trailing punctuation (keep internal slashes, spaces)
-        p = re.sub(r"^[^\w\s/]+|[^\w\s/]+$", "", p)
-        if len(p) > 1 and p not in {"and", "with", "the", "a", "an", "of", "for"}:
+        p = p.strip(" .,;:!?()[]{}'\"")
+        if len(p) > 1:
             skills.append(p)
     return skills
 
 # ------------------------------
-# HARD FILTER (SUBPHRASE MATCHING)
+# HARD FILTER - SUBSTRING MATCHING (CASE-INSENSITIVE)
 # ------------------------------
 def passes_filter(row, jd_struct, threshold=0.3):
     candidate_skills = tokenize_candidate_skills(row["Skills"])
@@ -88,7 +93,7 @@ def passes_filter(row, jd_struct, threshold=0.3):
 
     matched = []
     for must_skill in must_have:
-        # Substring match (case‑insensitive already due to lowercasing)
+        # Check if must_skill appears as a substring of any candidate skill
         if any(must_skill in cand for cand in candidate_skills):
             matched.append(must_skill)
 
@@ -153,18 +158,18 @@ def main():
     st.set_page_config(layout="wide")
     st.title(APP_TITLE)
 
-    uploaded = st.file_uploader("Upload CSV", type=["csv"])
+    uploaded = st.file_uploader("Upload CSV (with a column containing 'skill')", type=["csv"])
     jd = st.text_area("Paste Job Description", height=200)
 
     if not uploaded or not jd:
         st.info("📂 Upload a CSV and paste a job description.")
         return
 
-    # Auto‑detect skills column
+    # Load and detect skills column
     df = pd.read_csv(uploaded)
     skills_col = next((c for c in df.columns if "skill" in c.lower()), None)
     if not skills_col:
-        st.error("❌ No column with 'skill' in its name. Rename it to 'Skills'.")
+        st.error("❌ No column with 'skill' in its name. Rename it to e.g., 'Skills'.")
         return
     df.rename(columns={skills_col: "Skills"}, inplace=True)
     st.success(f"✅ Using column: {skills_col}")
@@ -190,22 +195,21 @@ def main():
     if st.button("🚀 Rank Candidates", type="primary"):
         df["combined"] = df.astype(str).agg(" ".join, axis=1)
 
-        # ---- DEBUG: Show exactly why each candidate passes/fails ----
+        # ---- DETAILED DEBUG TABLE ----
         debug_rows = []
         for idx, row in df.iterrows():
             passed, match_cnt, req, matched, cand_skills = passes_filter(row, jd_struct, threshold_pct)
             debug_rows.append({
                 "Name": row.get("Name", f"Row {idx}"),
-                "Candidate Skills (tokenized)": cand_skills,
-                "Must‑Have Skills": must_have,
-                "Matched Must‑Haves": matched,
+                "Candidate Skills (tokenized)": ", ".join(cand_skills),
+                "Matched Must‑Haves": ", ".join(matched),
                 "Match Count": match_cnt,
                 "Required": req,
                 "Passes Filter": passed
             })
         debug_df = pd.DataFrame(debug_rows)
-        with st.expander("🔍 Debug: Hard Filter Evaluation (full list)"):
-            st.dataframe(debug_df)
+        st.subheader("🔍 Hard Filter Evaluation (all candidates)")
+        st.dataframe(debug_df)
 
         # Apply filter
         filter_mask = df.apply(lambda row: passes_filter(row, jd_struct, threshold_pct)[0], axis=1)
@@ -213,10 +217,11 @@ def main():
 
         if df_filtered.empty:
             st.error("❌ No candidates passed the hard filter.")
-            st.info("💡 Check the debug table above. Common reasons:\n"
-                    "- Must‑have skills like 'search/retrieval experience' don't appear in any candidate\n"
-                    "- Typos or different wording (e.g., 'LLM' vs 'LLMs')\n"
-                    "- Try lowering the threshold to 0% to see everyone")
+            st.info("💡 Possible reasons:\n"
+                    "- Must‑have skills like 'llm applications' don't match candidate's 'LLMs' (substring fails)\n"
+                    "- Typos or different wording\n"
+                    "- Try lowering the threshold to 0% (see debug table above)\n"
+                    "- Check that the extracted must‑have skills look correct")
             st.stop()
 
         # Score and rank
