@@ -13,17 +13,11 @@ Must have:
 - Machine Learning
 - NLP or LLM applications
 - RAG or search/retrieval experience
-- FastAPI or backend API experience
-- Streamlit or similar UI experience
 
 Good to have:
 - LangChain or LangGraph
 - Vector databases
 - Prompt engineering
-- Evaluation pipelines
-- Docker
-- SQL
-- AWS
 
 Preferred profile:
 - 3 to 7 years of experience
