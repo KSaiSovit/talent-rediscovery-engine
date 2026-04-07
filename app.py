@@ -306,8 +306,9 @@ def main():
         st.subheader(f"✅ Found {len(results)} Matching Candidates")
         st.write("Select the candidates you want to re-engage with:")
 
-        # Add a selection column
-        results.insert(0, "Select", False)
+        # Add a selection column only if it doesn't already exist
+        if "Select" not in results.columns:
+            results.insert(0, "Select", False)
         
         # Use Data Editor for easy selection
         edited_df = st.data_editor(
